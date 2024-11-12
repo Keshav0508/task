@@ -1,35 +1,50 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from "react";
+import io from "socket.io-client";
+import PDFViewer from "./PDFViewer";
 
-function App() {
-  const [count, setCount] = useState(0)
+const socket = io.connect("http://localhost:3000"); // Make sure to match server URL if different
+
+const App = () => {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    // Ask user if they are the admin
+    const isAdminResponse =
+      window.prompt("Are you the admin? Type 'yes' if you are.") === "yes";
+    setIsAdmin(isAdminResponse);
+
+    if (isAdminResponse) {
+      socket.emit("set-admin");
+    }
+
+    // Listen for page update from server
+    socket.on("page-update", (page) => {
+      setCurrentPage(page);
+    });
+
+    return () => {
+      socket.off("page-update");
+    };
+  }, []);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    if (isAdmin) {
+      socket.emit("page-change", page);
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div>
+      <h1>PDF Co-Viewer</h1>
+      <PDFViewer
+        currentPage={currentPage}
+        onPageChange={handlePageChange}
+        isAdmin={isAdmin}
+      />
+    </div>
+  );
+};
 
-export default App
+export default App;
